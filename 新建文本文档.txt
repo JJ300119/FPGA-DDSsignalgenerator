@@ -1,0 +1,148 @@
+module seven_tube_drive (
+
+	input	wire				clk,
+	input	wire				rst_n,
+	
+	input	wire			[23:0]		show_data,
+	
+	output	reg		[7:0]		seven_tube_seg,
+	output	reg		[5:0]		seven_tube_sel
+);
+
+	localparam	T_1ms		=	50_000;
+	parameter SCAN_FREQ = 200;     //scan frequency
+   parameter CLK_FREQ = 50000000; //clock frequency
+
+   parameter SCAN_COUNT = CLK_FREQ /(SCAN_FREQ * 6) - 1;
+	
+	
+	localparam	ONE			=	6'b000_001;
+	localparam	TWO			=	6'b000_010;
+	localparam	THREE			=	6'b000_100;
+	localparam	FOUR			=	6'b001_000;
+	localparam	FIVE			=	6'b010_000;
+	localparam	SIX			=	6'b100_000;
+	
+	reg				[5:0]		c_state;
+	reg				[5:0]		n_state;
+	
+	reg				[15:0]	cnt_1ms;
+	wire							flag_1ms;
+	reg				[3:0]		temp;
+	
+	reg				[23:0]	reg_show_data;
+	
+	always @(posedge clk or negedge rst_n)
+	if(!rst_n)
+		reg_show_data <= 0;
+	else
+		reg_show_data <= show_data;
+	
+	always @ (posedge clk, negedge rst_n) begin
+		if (rst_n == 0)
+			cnt_1ms <= 0;
+		else
+			if (cnt_1ms < SCAN_COUNT )
+				cnt_1ms <= cnt_1ms + 1'b1;
+			else		
+				cnt_1ms <= 0;
+	end
+	
+	assign	flag_1ms = (cnt_1ms == SCAN_COUNT ) ? 1'b1 : 1'b0;
+	
+	always @ (posedge clk, negedge rst_n) begin
+		if (rst_n == 0)
+			c_state <= ONE;
+		else
+			c_state <= n_state;
+	end
+	
+	always @ * begin
+		case (c_state)
+			ONE			:	if (flag_1ms)
+								n_state = TWO;
+							else
+								n_state = ONE;
+								
+			TWO			:	if (flag_1ms)
+								n_state = THREE;
+							else
+								n_state = TWO;
+								
+			THREE		:	if (flag_1ms)
+								n_state = FOUR;
+							else
+								n_state = THREE;
+								
+			FOUR		:	if (flag_1ms)
+								n_state = FIVE;
+							else
+								n_state = FOUR;
+			
+			FIVE		:	if (flag_1ms)
+								n_state = SIX;
+							else
+								n_state = FIVE;
+								
+			SIX			:	if (flag_1ms)
+								n_state = ONE;
+							else
+								n_state = SIX;
+			
+			default		:		n_state = ONE;
+		endcase
+	end
+
+	always @ (posedge clk, negedge rst_n) begin
+		if (rst_n == 0)
+			seven_tube_sel <= 0;
+		else
+			case (c_state)
+				ONE		:	seven_tube_sel <= 5'b111_110;
+				TWO		:	seven_tube_sel <= 5'b111_101;
+				THREE		:	seven_tube_sel <= 5'b111_011;
+				FOUR		:	seven_tube_sel <= 5'b110_111;
+				FIVE		:	seven_tube_sel <= 5'b101_111;
+				SIX		:	seven_tube_sel <= 5'b011_111;
+				default	:	seven_tube_sel <= 5'b111_111;
+			endcase
+	end
+	
+	always @(*) begin
+		case (c_state)
+			ONE			:	temp = reg_show_data[23:20];
+			TWO			:	temp = reg_show_data[19:16];
+			THREE			:	temp = reg_show_data[15:12];
+			FOUR			:	temp = reg_show_data[11:8];
+			FIVE			:	temp = reg_show_data[7:4];
+			SIX			:	temp = reg_show_data[3:0];
+			default		:	temp = 4'd0;
+		endcase
+	end
+	
+	always @ (posedge clk, negedge rst_n) begin
+		if (rst_n == 0)
+			seven_tube_seg <= 8'hff;
+		else
+			case (temp)
+				0		:	seven_tube_seg <= 8'b1100_0000;
+				1		:	seven_tube_seg <= 8'b1111_1001;
+				2		:	seven_tube_seg <= 8'b1010_0100;
+				3		:	seven_tube_seg <= 8'b1011_0000;
+				4		:	seven_tube_seg <= 8'b1001_1001;
+				5		:	seven_tube_seg <= 8'b1001_0010;
+				6		:	seven_tube_seg <= 8'b1000_0010;
+				7		:	seven_tube_seg <= 8'b1111_1000;
+				8		:	seven_tube_seg <= 8'b1000_0000;
+				9		:	seven_tube_seg <= 8'b1001_0000;
+				10		:	seven_tube_seg <= 8'b1000_1000;
+				11		:	seven_tube_seg <= 8'b1000_0011;
+				12		:	seven_tube_seg <= 8'b1100_0110;
+				13		:	seven_tube_seg <= 8'b1010_0001;
+				14		:	seven_tube_seg <= 8'b1000_0110;
+				15		:	seven_tube_seg <= 8'b1000_1110;
+				default:seven_tube_seg <= 8'hFF; //8'b1111_1111
+			endcase
+	end
+	
+endmodule 
